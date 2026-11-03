@@ -1,6 +1,6 @@
 # ssweep
 
-![CI](https://github.com/YOUR_USERNAME/ssweep/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/meev777/ssweep/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -68,7 +68,7 @@ Requirements: **Linux**, **Python 3.9+**. Docker and systemd are optional (the s
 **Option 1 - just run it (no install)**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ssweep.git
+git clone https://github.com/meev777/ssweep.git
 cd ssweep
 python3 ssweep.py
 ```
@@ -76,14 +76,14 @@ python3 ssweep.py
 **Option 2 - install the `ssweep` command with pipx** (recommended)
 
 ```bash
-pipx install git+https://github.com/YOUR_USERNAME/ssweep.git
+pipx install git+https://github.com/meev777/ssweep.git
 ssweep
 ```
 
 **Option 3 - install with pip from a clone**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ssweep.git
+git clone https://github.com/meev777/ssweep.git
 cd ssweep
 pip install .
 ssweep
@@ -196,7 +196,7 @@ proceed? [y/N] y
 ## Development
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ssweep.git
+git clone https://github.com/meev777/ssweep.git
 cd ssweep
 python3 -m unittest discover -s tests -v
 ```
