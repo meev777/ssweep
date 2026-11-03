@@ -221,3 +221,6 @@ Issues and pull requests are welcome.
 ## License
 
 [MIT](LICENSE)
+
+ssweep - see what is listening / running / left over (ports, docker, services) and clean it up.
+
