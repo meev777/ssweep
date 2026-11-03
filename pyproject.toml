@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ssweep"
+version = "0.1.0"
+description = "See every open port, Docker container, image and service on your machine in one readable view, and stop or delete the leftovers."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Houssam" }]
+keywords = ["docker", "ports", "cleanup", "monitoring", "cli", "devops", "security"]
+classifiers = [
+  "Environment :: Console",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Systems Administration",
+  "Topic :: System :: Monitoring",
+]
+
+[project.urls]
+Homepage = "https://github.com/meev777/ssweep"
+Issues = "https://github.com/meev777/ssweep/issues"
+
+[project.scripts]
+ssweep = "ssweep:main"
+
+[tool.setuptools]
+py-modules = ["ssweep"]
