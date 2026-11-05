@@ -316,7 +316,40 @@ def items_from_ports(ports, containers):
                       + (f" | {r['cmd'][:40]}" if r["kind"] == "process" else "")})
     return items
 
+CAT_ORDER = {"containers": 0, "images": 1, "services": 2, "ports": 3}
+
 def build_clean_items(d):
+    items = []
+    cstate = {c["id"]: c["state"] for c in d["containers"] or []}
+    for c in d["containers"] or []:
+        items.append({"cat": "containers", "kind": "container", "id": c["id"], "name": c["name"], "state": c["state"],
+                      "info": f'{cut(c["image"], 22)} | {cut(c["status"], 24)} | {fmt_ports(c["ports"])}'})
+    for i in d["images"] or []:
+        if i["state"] in ("unused", "dangling"):
+            items.append({"cat": "images", "kind": "image", "id": i["id"], "ref": i["id"] if i["state"] == "dangling" else i["name"],
+                          "name": cut(i["name"], 30), "state": i["state"], "info": f'{i["size"]} | {i["state"]} | {i["created"]}'})
+    for sv in d["services"] or []:
+        if sv["system"]: continue
+        ports = ("ports " + ",".join(map(str, sv["ports"]))) if sv["ports"] else "no open ports"
+        items.append({"cat": "services", "kind": "service", "id": sv["unit"], "name": sv["unit"], "state": "running",
+                      "info": f'{ports} | {cut(sv["desc"], 35)}'})
+    seen = set()
+    for p in d["ports"]:                                   # one row per port, whoever owns it
+        if p["kind"] == "unknown": continue
+        if p["kind"] == "service" and SYSTEM_RE.match(p["owner"]): continue
+        if p["kind"] == "process" and int(p["owner_id"]) in (1, os.getpid()): continue
+        key = (p["port"], p["proto"], p["kind"], p["owner_id"])
+        if key in seen: continue
+        seen.add(key)
+        items.append({"cat": "ports", "kind": p["kind"], "id": p["owner_id"], "name": f'{p["port"]}/{p["proto"]}',
+                      "state": cstate.get(p["owner_id"], "running"), "force_mode": "stop", "owner": p["owner"],
+                      "info": f'{bind_label(p["binds"])[0]} | {p["kind"]} {cut(p["owner"], 24)}' + (f' | {cut(p["cmd"], 30)}' if p["kind"] == "process" else "")})
+    return items
+
+def action_label(i, mode="rm"):
+    if i.get("force_mode"): return ("kill " if i["kind"] == "process" else "stop ") + cut(i["owner"], 22)
+    return "stop only" if mode == "stop" else ACTION[i["kind"]](i)
+
     items = []
     for c in d["containers"] or []:
         items.append({"kind": "container", "id": c["id"], "name": c["name"], "state": c["state"],
@@ -346,7 +379,56 @@ def parse_selection(s, n):
 def confirm(msg, yes):
     return yes or input(msg + " [y/N] ").strip().lower() in ("y", "yes")
 
+MENU = [("1", "containers"), ("2", "images"), ("3", "services"), ("4", "ports"), ("a", "all")]
+
 def cmd_clean(a):
+    cat = a.what
+    while True:
+        d = collect(True)
+        if d["docker_error"]: print(dim(f"docker: {d['docker_error']}"))
+        every = build_clean_items(d)
+        if cat is None:                                    # category menu
+            n = {k: sum(i["cat"] == k for i in every) for k in CAT_ORDER}
+            n_all = sum(i["cat"] != "ports" or i["kind"] == "process" for i in every)
+            print("\n" + bold("what do you want to clean?"))
+            for key, name in MENU:
+                print(f"  {bold(key)}) {name:<11}" + dim(f" {n.get(name, n_all)}"))
+            print(f"  {bold('q')}) quit")
+            try: ch = input("clean> ").strip().lower()
+            except (EOFError, KeyboardInterrupt): print(); return 0
+            if ch in ("q", "quit", ""): return 0
+            cat = next((name for key, name in MENU if ch in (key, name)), None)
+            if cat is None: print(red("unknown choice")); continue
+        items = [i for i in every if cat == "all" and (i["cat"] != "ports" or i["kind"] == "process") or i["cat"] == cat]
+        items.sort(key=lambda i: CAT_ORDER[i["cat"]])
+        if not items:
+            print(f"nothing to clean in '{cat}'.")
+        else:
+            table(["#", "TYPE", "NAME", "ACTION", "INFO"],
+                  [[(str(n), bold), i["kind"], cut(i["name"], 28), (action_label(i), yellow), dim(i["info"])] for n, i in enumerate(items, 1)])
+            print(dim("\n  pick: 1 3 5-7   |   s2 = stop only (keep it)   |   q = back"))
+            try:
+                raw = input("select> ").strip()
+                sel = [] if raw.lower() in ("", "q", "quit", "back") else parse_selection(raw, len(items))
+            except ValueError as e:
+                print(red(str(e))); sel = []
+            except (EOFError, KeyboardInterrupt):
+                print(); return 0
+            if sel:
+                sel = sorted(set(sel), key=lambda t: (CAT_ORDER[items[t[0] - 1]["cat"]], t[0]))
+                print("\nwill do:")
+                for n, mode in sel:
+                    i = items[n - 1]
+                    print(f"  {i['kind']:<10} {cut(i['name'], 30):<30} -> {action_label(i, mode)}")
+                if confirm("proceed?", a.yes):
+                    for n, mode in sel:
+                        i = items[n - 1]
+                        ok, msg = perform(i, i.get("force_mode") or mode)
+                        print(f"  {green('ok  ') if ok else red('fail')} {i['kind']} {i['name']}: {msg}")
+                else:
+                    print("aborted.")
+        if a.what is not None: return 0                    # direct mode: one round, then exit
+        cat = None
     d = collect(True)
     items = build_clean_items(d)
     if d["docker_error"]: print(dim(f"docker: {d['docker_error']}"))
@@ -411,7 +493,9 @@ def main():
     sh.add_argument("-a", "--all", action="store_true", default=argparse.SUPPRESS)
     sh.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
     sh.set_defaults(fn=cmd_show)
-    c = sub.add_parser("clean", help="interactively stop/remove things"); c.add_argument("-y", "--yes", action="store_true"); c.set_defaults(fn=cmd_clean)
+    c = sub.add_parser("clean", help="interactively stop/remove things")
+    c.add_argument("what", nargs="?", choices=["containers", "images", "services", "ports", "all"], help="skip the menu")
+    c.add_argument("-y", "--yes", action="store_true"); c.set_defaults(fn=cmd_clean)
     f = sub.add_parser("free", help="stop whatever owns a port"); f.add_argument("port", type=int)
     f.add_argument("-y", "--yes", action="store_true"); f.add_argument("--rm", action="store_true", help="remove containers instead of stopping")
     f.add_argument("--force", action="store_true"); f.set_defaults(fn=cmd_free)

@@ -96,7 +96,8 @@ ssweep
 | `ssweep` | Overview: ports, containers, images, services |
 | `ssweep -a` | Same, but list **every** running service (default: only services that own a port) |
 | `ssweep --json` | Machine-readable overview |
-| `ssweep clean` | Interactive: pick numbered items to stop or remove |
+| `ssweep clean` | Interactive menu: containers, images, services or ports, then pick numbered items to stop or remove |
+| `ssweep clean services` | Skip the menu (`containers`, `images`, `services`, `ports`, `all`) |
 | `ssweep clean -y` | Same, without the final confirmation |
 | `ssweep free <port>` | Stop whatever owns that port (container, service or process) |
 | `ssweep free <port> --rm` | Same, but **delete** a container instead of stopping it |
@@ -106,7 +107,7 @@ Flags like `-a` and `--json` work before or after `show`.
 
 ### `ssweep clean`
 
-Lists everything worth cleaning, numbered: containers, unused/dangling images, services and processes that hold open ports.
+Opens a menu (containers, images, services, ports, all). Pick a category and it lists what is there, numbered. After each action you return to the menu; `q` quits.
 
 ```text
 $ ssweep clean
@@ -138,7 +139,7 @@ Selection syntax: `3` one item, `5-7` a range, `s2` **stop only** (keep the cont
 | container | stop and delete (`docker rm -f`) |
 | image | delete (`docker rmi`) |
 | service | `systemctl stop` (not disabled, it comes back after reboot) |
-| process | `SIGTERM` |
+| port | stops/kills whatever owns it (container is stopped, not deleted) |
 
 Nothing happens until you confirm the plan.
 
@@ -221,6 +222,3 @@ Issues and pull requests are welcome.
 ## License
 
 [MIT](LICENSE)
-
-ssweep - see what is listening / running / left over (ports, docker, services) and clean it up.
-
