@@ -10,7 +10,7 @@
 Python 3 stdlib only. Ports are read from /proc (no ss needed). Run with sudo to see
 the owner of every port. Docker is used through the `docker` CLI if available.
 """
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 import argparse, ipaddress, json, os, re, shutil, signal, subprocess, sys
 
